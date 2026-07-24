@@ -82,6 +82,57 @@ type BriefResponse = {
   method: string;
 };
 
+function formatBriefForClipboard({
+  goal,
+  trigger,
+  apps,
+  sensitivity,
+  deployment,
+  result,
+}: {
+  goal: string;
+  trigger: string;
+  apps: string[];
+  sensitivity: string;
+  deployment: string;
+  result: BriefResponse;
+}) {
+  const lines = [
+    "porQpine chatbot / automation brief",
+    "",
+    `Goal: ${goal}`,
+    `Trigger: ${trigger}`,
+    `Apps: ${apps.join(", ") || "None selected"}`,
+    `Data sensitivity: ${sensitivity}`,
+    `Delivery: ${deployment}`,
+    "",
+    result.implementationBrief.title,
+    result.implementationBrief.objective,
+    "",
+    "Implementation path:",
+    ...result.implementationBrief.workflow.map(
+      (step, index) => `${index + 1}. ${step.stage}: ${step.detail}`,
+    ),
+    "",
+    `Starter fit: ${result.complexity.offerFit}`,
+    result.complexity.explanation,
+  ];
+
+  const appendList = (label: string, items: string[]) => {
+    if (!items.length) return;
+    lines.push("", `${label}:`, ...items.map((item) => `- ${item}`));
+  };
+
+  appendList("In scope to discuss", result.implementationBrief.inScope);
+  appendList("Risks", result.risks);
+  appendList("Assumptions", result.assumptions);
+  appendList("Not included by default", result.implementationBrief.outOfScope);
+  appendList("Next steps", result.nextSteps);
+  lines.push("", `Service: ${OFFER_URL}`);
+
+  return lines.join("\n");
+}
+
 type Issue = {
   field: string;
   message: string;
@@ -124,6 +175,7 @@ export function Workbench() {
   const [deployment, setDeployment] = useState("handoff");
   const [result, setResult] = useState<BriefResponse | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle",
   );
@@ -134,6 +186,9 @@ export function Workbench() {
   const deploymentLabel =
     deploymentOptions.find((option) => option.value === deployment)?.label ??
     "Choose delivery";
+  const sensitivityLabel =
+    sensitivityOptions.find((option) => option.value === sensitivity)?.label ??
+    "Choose sensitivity";
   const selectedAppLabels = useMemo(
     () =>
       apps.map(
@@ -163,6 +218,7 @@ export function Workbench() {
   async function submitBrief(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIssues([]);
+    setCopyState("idle");
     setStatus("loading");
 
     try {
@@ -211,6 +267,26 @@ export function Workbench() {
         },
       ]);
       setStatus("error");
+    }
+  }
+
+  async function copyBrief() {
+    if (!result) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        formatBriefForClipboard({
+          goal,
+          trigger: triggerLabel,
+          apps: selectedAppLabels,
+          sensitivity: sensitivityLabel,
+          deployment: deploymentLabel,
+          result,
+        }),
+      );
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
     }
   }
 
@@ -730,15 +806,25 @@ export function Workbench() {
                   <strong>Privacy note:</strong> {result.privacyNote}{" "}
                   {result.method}
                 </p>
-                <a
-                  className="button button-primary"
-                  href={OFFER_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Take this brief to Freelancer
-                  <ArrowIcon />
-                </a>
+                <div className="result-actions">
+                  <button className="button button-secondary" type="button" onClick={copyBrief}>
+                    {copyState === "copied"
+                      ? "Brief copied"
+                      : copyState === "error"
+                        ? "Copy unavailable"
+                        : "Copy brief"}
+                    <span aria-hidden="true">{copyState === "copied" ? "✓" : "⧉"}</span>
+                  </button>
+                  <a
+                    className="button button-primary"
+                    href={OFFER_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Continue on Freelancer
+                    <ArrowIcon />
+                  </a>
+                </div>
               </div>
             </section>
           )}

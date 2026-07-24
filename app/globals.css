@@ -1364,6 +1364,18 @@ section {
   color: var(--ink);
 }
 
+.result-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.result-actions .button {
+  white-space: nowrap;
+}
+
 .process-section {
   border-bottom: 1px solid var(--line);
 }
